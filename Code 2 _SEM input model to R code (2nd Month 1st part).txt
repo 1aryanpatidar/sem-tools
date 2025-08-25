@@ -1,0 +1,232 @@
+!pip install ipywidgets pandas -q
+
+import pandas as pd
+import ipywidgets as w
+from google.colab import files
+from IPython.display import display, clear_output
+
+class SEMInteractiveCSV:
+    def __init__(self):
+        self.var_items = []
+        self.factors = {}
+        self.covariances = []
+        self.error_covariances = []
+        self.n_factors = 0
+        self.data_filename = ""
+
+    def start(self):
+        print("Upload CSV (first row: variable names):")
+        try:
+            up = files.upload()
+            fname = next(iter(up))
+            self.data_filename = fname
+            df = pd.read_csv(fname)
+            # Ensure we get ALL columns without any filtering
+            self.var_items = list(df.columns)
+            
+            print(f"Loaded '{fname}' - {len(self.var_items)} variables")
+            print(f"Variables: {', '.join(self.var_items)}")
+            
+            self.ask_n_factors()
+        except Exception as e:
+            print(f"Error: {e}")
+
+    def ask_n_factors(self):
+        n = w.IntSlider(1, 1, 10, description='Number of Factors:')
+        b = w.Button(description='Next', button_style='success')
+        o = w.Output()
+        def go(x):
+            with o:
+                clear_output()
+                self.n_factors = n.value
+                self.factor_form()
+        b.on_click(go)
+        display(w.VBox([n, b, o]))
+
+    def factor_form(self):
+        fw = []
+        accordion_children = []
+        
+        # Grid layout settings for proper visibility - 6 items per row
+        items_per_row = 6
+        grid_template = f'repeat({items_per_row}, minmax(min-content, 1fr))'
+        
+        for i in range(self.n_factors):
+            fname = w.Text(value=f'Factor{i+1}', description='Factor Name:')
+            cb_list = []
+            num_rows = (len(self.var_items) + items_per_row - 1) // items_per_row
+            
+            # Create GridspecLayout for better organization
+            grid = w.GridspecLayout(
+                num_rows, items_per_row,
+                layout=w.Layout(
+                    grid_template_columns=grid_template,
+                    grid_auto_rows='auto',
+                    grid_gap='5px',
+                    padding='10px',
+                    border='1px solid lightgray',
+                    width='100%'
+                )
+            )
+            
+            # Place all variables in the grid
+            for idx, var in enumerate(self.var_items):
+                row_idx = idx // items_per_row
+                col_idx = idx % items_per_row
+                cb = w.Checkbox(value=False, description=var)
+                cb_list.append(cb)
+                grid[row_idx, col_idx] = cb
+            
+            all_btn = w.Button(description='Select All', button_style='info', layout=w.Layout(width='90px'))
+            none_btn = w.Button(description='Select None', button_style='warning', layout=w.Layout(width='90px'))
+
+            def select_all(b, cb_list=cb_list):
+                for cb in cb_list: cb.value = True
+            def select_none(b, cb_list=cb_list):
+                for cb in cb_list: cb.value = False
+
+            all_btn.on_click(select_all)
+            none_btn.on_click(select_none)
+
+            button_box = w.HBox([all_btn, none_btn])
+
+            box = w.VBox([
+                fname,
+                button_box,
+                w.HTML("<b>Select Items for this Factor:</b>"),
+                grid
+            ], layout=w.Layout(border='1px solid #ccc', padding='10px', margin='5px 0'))
+            
+            accordion_children.append(box)
+            fw.append({'name': fname, 'cb_list': cb_list, 'box': box})
+
+        acc = w.Accordion(children=accordion_children)
+        for i in range(self.n_factors):
+            acc.set_title(i, f"Factor {i+1}")
+
+        # Factor Covariances
+        cov_out = w.Output()
+        def update_covs(change=None):
+            with cov_out:
+                clear_output()
+                names = [f['name'].value for f in fw]
+                unique_names = list(set(names))
+                cbs = [w.Checkbox(True, description=f'{unique_names[i]} ~~ {unique_names[j]}')
+                       for i in range(len(unique_names)) for j in range(i+1, len(unique_names))]
+                setattr(cov_out, 'cbs', cbs)
+                display(w.VBox(cbs))
+
+        for f in fw: f['name'].observe(update_covs, 'value')
+        update_covs()
+
+        # Error Covariances
+        err_boxes = []
+        err_out = w.Output()
+        def add_err(x):
+            with err_out:
+                if len(err_boxes) < 20:
+                    box = self.make_err_box()
+                    err_boxes.append(box)
+                clear_output()
+                display(w.VBox(err_boxes))
+        add_btn = w.Button(description='Add Error Covariance', button_style='info')
+        add_btn.on_click(add_err)
+        err_boxes.append(self.make_err_box())
+
+        display(w.VBox([
+            w.HTML(f"<h2>SEM Model Specification</h2>"),
+            w.HTML(f"<b>Available Variables ({len(self.var_items)}):</b> {', '.join(self.var_items)}"),
+            w.HTML("<hr><h3>1. Assign Factor Names and Items</h3>"),
+            acc,
+            w.HTML("<hr><h3>2. Specify Factor Covariances</h3>"),
+            cov_out,
+            w.HTML("<hr><h3>3. Specify Error Covariances</h3>"),
+            err_out,
+            add_btn,
+            self.gen_button(fw, cov_out, err_boxes)
+        ]))
+        with err_out:
+            display(w.VBox(err_boxes))
+
+    def make_err_box(self):
+        opts = ['None'] + self.var_items
+        return w.HBox([
+            w.Dropdown(options=opts, description='Variable 1:', layout=w.Layout(width='180px')),
+            w.Dropdown(options=opts, description='Variable 2:', layout=w.Layout(width='180px'))
+        ], layout=w.Layout(margin='5px 0'))
+
+    def gen_button(self, fw, cov_out, err_boxes):
+        btn = w.Button(description='Generate R Code', button_style='success', layout=w.Layout(margin='20px 0'))
+        out = w.Output()
+        def g(x):
+            with out:
+                clear_output()
+                self.factors = {
+                    f['name'].value: [cb.description for cb in f['cb_list'] if cb.value]
+                    for f in fw if any(cb.value for cb in f['cb_list'])
+                }
+                self.covariances = []
+                if hasattr(cov_out, 'cbs'):
+                    for cb in cov_out.cbs:
+                        if cb.value:
+                            a, b = cb.description.split(' ~~ ')
+                            self.covariances.append((a, b))
+                self.error_covariances = []
+                for eb in err_boxes:
+                    dds = eb.children
+                    if (dds[0].value not in [None, 'None']) and (dds[1].value not in [None, 'None']) and (dds[0].value != dds[1].value):
+                        self.error_covariances.append(tuple(sorted((dds[0].value, dds[1].value))))
+                self.error_covariances = list(set(self.error_covariances))
+
+                print(self.r_code())
+        btn.on_click(g)
+        return w.VBox([btn, out])
+
+    def r_code(self):
+        code = (
+            "#####################################################\n"
+            "## LEARNING CFA AND CB-SEM IN R USING LAVAAN     ##\n"
+            "#####################################################\n\n"
+            "#Install packages\n"
+            'install.packages("lavaan", dependencies = TRUE)\n'
+            'install.packages("XML", dependencies = TRUE)\n'
+            'install.packages("semPlot", dependencies = TRUE)\n'
+            "library(lavaan)\n"
+            "library(XML)\n"
+            "library(semPlot)\n\n"
+            "##Reading Excel File\n"
+            f'datarnd <- read.table("{self.data_filename}", header=TRUE, sep=",")\n\n'
+            "##Reading SPSS file\n"
+            '#datarnd <- read.spss("datasem.sav", use.value.labels=FALSE, to.data.frame=TRUE)\n\n'
+            "str(datarnd)\n"
+            "head(datarnd)\n\n"
+            "lead <- '# Latent 1st Order Factor Descriptions\n"
+        )
+        
+        for f, i in self.factors.items():
+            if i:
+                code += f"{f} =~ {' + '.join(i)}\n"
+        
+        if self.covariances:
+            code += "\n#Covariances\n"
+            for a, b in self.covariances:
+                code += f"{a} ~~ {b}\n"
+        
+        if self.error_covariances:
+            code += "\n#Covarying measurement errors\n"
+            for a, b in self.error_covariances:
+                code += f"{a} ~~ {b}\n"
+        
+        code += "'\n\n"
+        code += "fit <- cfa(lead, data=datarnd)\n"
+        code += "summary(fit,fit.measures = TRUE,standardized=TRUE)\n"
+        code += 'semPaths(fit,whatLabels="std", intercepts=FALSE, style="lisrel",\n'
+        code += "         nCharNodes=0,\n"
+        code += "         nCharEdges=0,\n"
+        code += '         curveAdjacent = TRUE,title=TRUE, layout="tree2",curvePivot=FALSE)\n'
+        code += 'fitmeasures(fit,fit.measures=c("npar","chisq","df","pvalue","cfi","rmsea","rmsea.ci.lower","rmsea.ci.upper","srmr","gfi"))\n'
+        code += "modindices(fit,sort=TRUE,minimum.value = 4)\n"
+        
+        return code
+
+SEMInteractiveCSV().start()

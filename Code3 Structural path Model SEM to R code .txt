@@ -1,0 +1,319 @@
+!pip install ipywidgets pandas -q
+
+import pandas as pd
+import ipywidgets as w
+from google.colab import files
+from IPython.display import display, clear_output
+
+class SEMInteractiveCSV:
+    def __init__(self):
+        self.var_items = []
+        self.factors = {}
+        self.structural_paths = []
+        self.structural_error_covariances = []
+        self.error_covariances = []
+        self.n_factors = 0
+        self.data_filename = ""
+
+    def start(self):
+        print("Upload CSV (first row: variable names):")
+        try:
+            up = files.upload()
+            fname = next(iter(up))
+            self.data_filename = fname  # Store filename for R code generation
+            df = pd.read_csv(fname)
+            self.var_items = [col.strip() for col in df.columns if col.strip()]
+            
+            print(f"Loaded '{fname}' - {len(self.var_items)} variables")
+            print(f"Variables: {', '.join(self.var_items)}")
+            self.ask_n_factors()
+        except Exception as e:
+            print(f"Error: {e}")
+
+    def ask_n_factors(self):
+        n_slider = w.IntSlider(value=1, min=1, max=10, description='Factors:')
+        next_btn = w.Button(description='Next', button_style='success')
+        output = w.Output()
+        def go(x):
+            with output:
+                clear_output()
+                self.n_factors = n_slider.value
+                self.factor_form()
+        next_btn.on_click(go)
+        display(w.VBox([n_slider, next_btn, output]))
+
+    def factor_form(self):
+        factor_widgets = []
+        accordion_panes = []
+        items_per_row = 6
+        grid_template = f'repeat({items_per_row}, minmax(min-content, 1fr))'
+        
+        for i in range(self.n_factors):
+            fname = w.Text(value=f'F{i+1}', description='Name:')
+            cb_list = []
+            num_rows = (len(self.var_items) + items_per_row - 1) // items_per_row
+            
+            grid = w.GridspecLayout(
+                num_rows, items_per_row,
+                layout=w.Layout(
+                    grid_template_columns=grid_template,
+                    grid_auto_rows='auto',
+                    grid_gap='5px',
+                    padding='10px',
+                    border='1px solid lightgray',
+                    width='100%'
+                )
+            )
+            
+            for idx, var in enumerate(self.var_items):
+                row_idx = idx // items_per_row
+                col_idx = idx % items_per_row
+                cb = w.Checkbox(value=False, description=var)
+                cb_list.append(cb)
+                grid[row_idx, col_idx] = cb
+            
+            all_btn = w.Button(description='All', button_style='info', layout=w.Layout(width='60px'))
+            none_btn = w.Button(description='None', button_style='warning', layout=w.Layout(width='60px'))
+            
+            all_btn.on_click(lambda b, cbs=cb_list: [setattr(cb, 'value', True) for cb in cbs])
+            none_btn.on_click(lambda b, cbs=cb_list: [setattr(cb, 'value', False) for cb in cbs])
+            
+            pane = w.VBox([
+                fname,
+                w.HBox([all_btn, none_btn]),
+                w.HTML(f"<b>Select Variables:</b>"),
+                grid
+            ], layout=w.Layout(border='1px solid #ccc', padding='15px', margin='10px 0'))
+            
+            accordion_panes.append(pane)
+            factor_widgets.append({'name': fname, 'cb_list': cb_list})
+        
+        accordion = w.Accordion(children=accordion_panes)
+        for i in range(self.n_factors):
+            accordion.set_title(i, f"Factor {i+1}")
+
+        # Structural Paths
+        struct_output = w.Output()
+        struct_widgets = {}
+        
+        def update_structural_paths(change=None):
+            with struct_output:
+                clear_output()
+                factor_names = [f['name'].value for f in factor_widgets]
+                struct_widgets.clear()
+                
+                path_grid = []
+                for i, from_factor in enumerate(factor_names):
+                    row_widgets = []
+                    for j, to_factor in enumerate(factor_names):
+                        if i != j:
+                            cb = w.Checkbox(False, description=f"{from_factor} → {to_factor}")
+                            cb.factor_pair = (from_factor, to_factor)
+                            cb.reverse_pair = (to_factor, from_factor)
+                            struct_widgets[(from_factor, to_factor)] = cb
+                            row_widgets.append(cb)
+                        else:
+                            row_widgets.append(w.HTML("—"))
+                    path_grid.append(w.HBox(row_widgets))
+                
+                def on_path_change(change):
+                    if change['new']:
+                        cb = change['owner']
+                        reverse_key = cb.reverse_pair
+                        if reverse_key in struct_widgets:
+                            reverse_cb = struct_widgets[reverse_key]
+                            reverse_cb.disabled = True
+                    else:
+                        cb = change['owner']
+                        reverse_key = cb.reverse_pair
+                        if reverse_key in struct_widgets:
+                            reverse_cb = struct_widgets[reverse_key]
+                            reverse_cb.disabled = False
+                    update_structural_error_covariances()
+                
+                for cb in struct_widgets.values():
+                    cb.observe(on_path_change, names='value')
+                
+                display(w.VBox([w.HTML("<b>Structural Paths (→):</b>")] + path_grid))
+        
+        for f in factor_widgets:
+            f['name'].observe(update_structural_paths, 'value')
+        update_structural_paths()
+
+        # Structural Error Covariances
+        struct_err_output = w.Output()
+        def update_structural_error_covariances(change=None):
+            with struct_err_output:
+                clear_output()
+                
+                dependent_factors = set()
+                for (from_f, to_f), cb in struct_widgets.items():
+                    if cb.value:
+                        dependent_factors.add(to_f)
+                
+                dependent_list = sorted(list(dependent_factors))
+                struct_err_checkboxes = []
+                
+                for i in range(len(dependent_list)):
+                    for j in range(i+1, len(dependent_list)):
+                        cb = w.Checkbox(False, description=f'{dependent_list[i]} ~~ {dependent_list[j]}')
+                        struct_err_checkboxes.append(cb)
+                
+                setattr(struct_err_output, 'struct_err_cbs', struct_err_checkboxes)
+                
+                if struct_err_checkboxes:
+                    display(w.VBox([w.HTML("<i>Available between dependent factors:</i>")] + struct_err_checkboxes))
+                else:
+                    display(w.HTML("<i>No structural error covariances available (need at least 2 dependent factors)</i>"))
+        
+        for f in factor_widgets:
+            f['name'].observe(update_structural_error_covariances, 'value')
+        update_structural_error_covariances()
+        
+        # Measurement Error Covariances
+        err_rows = []
+        err_output = w.Output()
+        def add_err(x):
+            with err_output:
+                if len(err_rows) < 20:
+                    err_rows.append(self.make_err_box())
+                clear_output()
+                display(w.VBox(err_rows))
+        
+        add_err_btn = w.Button(description='+ Add Error Covariance', button_style='info')
+        add_err_btn.on_click(add_err)
+        err_rows.append(self.make_err_box())
+        
+        # Main UI
+        ui = w.VBox([
+            w.HTML("<h2><center>SEM Builder</center></h2>"),
+            w.HTML("<hr><h3>1. Define Factors</h3>"),
+            accordion,
+            w.HTML("<hr><h3>2. Structural Paths</h3>"),
+            struct_output,
+            w.HTML("<hr><h3>3. Structural Error Covariances</h3>"),
+            struct_err_output,
+            w.HTML("<hr><h3>4. Measurement Error Covariances</h3>"),
+            err_output,
+            add_err_btn,
+            self.gen_button(factor_widgets, struct_widgets, struct_err_output, err_rows)
+        ], layout=w.Layout(border='2px solid #4CAF50', padding='20px'))
+        
+        display(ui)
+        with err_output:
+            display(w.VBox(err_rows))
+
+    def make_err_box(self):
+        opts = ['None'] + self.var_items
+        return w.HBox([
+            w.Dropdown(options=opts, description='Var 1:', layout=w.Layout(width='160px')),
+            w.Dropdown(options=opts, description='Var 2:', layout=w.Layout(width='160px'))
+        ])
+
+    def gen_button(self, factor_widgets, struct_widgets, struct_err_output, err_rows):
+        btn = w.Button(description='Generate R Code', button_style='success')
+        output = w.Output()
+        
+        def generate(x):
+            with output:
+                clear_output()
+                
+                # Collect factors
+                self.factors = {}
+                for f in factor_widgets:
+                    name = f['name'].value
+                    items = [cb.description for cb in f['cb_list'] if cb.value]
+                    if items:
+                        self.factors[name] = items
+                
+                # Collect structural paths
+                self.structural_paths = []
+                for (from_f, to_f), cb in struct_widgets.items():
+                    if cb.value:
+                        self.structural_paths.append((to_f, from_f))
+                
+                # Collect structural error covariances
+                self.structural_error_covariances = []
+                if hasattr(struct_err_output, 'struct_err_cbs'):
+                    for cb in struct_err_output.struct_err_cbs:
+                        if cb.value:
+                            f1, f2 = cb.description.split(' ~~ ')
+                            self.structural_error_covariances.append((f1, f2))
+                
+                # Collect measurement error covariances
+                self.error_covariances = []
+                unique_errs = set()
+                for box in err_rows:
+                    v1, v2 = box.children[0].value, box.children[1].value
+                    if v1 not in [None, 'None'] and v2 not in [None, 'None'] and v1 != v2:
+                        unique_errs.add(tuple(sorted((v1, v2))))
+                self.error_covariances = list(unique_errs)
+                
+                print(self.r_code())
+        
+        btn.on_click(generate)
+        return w.VBox([btn, output])
+
+    def r_code(self):
+        code = (
+            "#####################################################\n"
+            "## LEARNING CFA AND CB-SEM IN R USING LAVAAN     ##\n"
+            "#####################################################\n\n"
+            "#Install packages\n"
+            'install.packages("lavaan", dependencies = TRUE)\n'
+            'install.packages("XML", dependencies = TRUE)\n'
+            'install.packages("semPlot", dependencies = TRUE)\n\n'
+            "library(lavaan)\n"
+            "library(XML)\n"
+            "library(semPlot)\n\n"
+            "##Reading Excel File\n"
+            f'datarnd <- read.table("{self.data_filename}", header=TRUE, sep=",")\n\n'
+            "##Reading SPSS file\n"
+            "#datarnd <- read.spss(\"datasem.sav\", use.value.labels=FALSE, to.data.frame=TRUE)\n\n"
+            "lead <- '# Latent 1st Order Factor Descriptions\n"
+        )
+        
+        # Factors
+        for name, items in self.factors.items():
+            code += f"{name} =~ {' + '.join(items)}\n"
+        
+        # Structural paths
+        if self.structural_paths:
+            code += "\n# Structural Paths\n"
+            for to_factor, from_factor in self.structural_paths:
+                code += f"{to_factor} ~ {from_factor}\n"
+        
+        # Structural error covariances
+        if self.structural_error_covariances:
+            code += "\n# Covariances\n"
+            for f1, f2 in self.structural_error_covariances:
+                code += f"{f1} ~~ {f2}\n"
+        
+        # Measurement error covariances
+        if self.error_covariances:
+            code += "\n# Covarying measurement errors\n"
+            for a, b in self.error_covariances:
+                code += f"{a} ~~ {b}\n"
+        
+        code += "'\n\n"
+        
+        # Model fitting
+        if self.structural_paths:
+            code += "fit <- sem(lead, data=datarnd)\n"
+        else:
+            code += "fit <- cfa(lead, data=datarnd)\n"
+        
+        code += (
+            "summary(fit,fit.measures = TRUE,standardized=TRUE)\n"
+            'semPaths(fit,whatLabels="std", intercepts=FALSE, style="lisrel",\n'
+            "         nCharNodes=0,\n"
+            "         nCharEdges=0,\n"
+            "         curveAdjacent = TRUE,title=TRUE, layout=\"tree2\",curvePivot=FALSE)\n"
+            'fitmeasures(fit,fit.measures=c("npar","chisq","df","pvalue","cfi","rmsea","rmsea.ci.lower","rmsea.ci.upper","srmr","gfi"))\n'
+            "modindices(fit,sort=TRUE,minimum.value = 4)\n"
+        )
+        
+        return code
+
+SEMInteractiveCSV().start()
+
