@@ -2,110 +2,140 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>SEM Analysis Tools</title>
+  <title>SEM Tools – Prof. Vishal Gupta (IIM Ahmedabad)</title>
   <style>
     body {
-      font-family: Arial, sans-serif;
-      background-color: #f9f9f9;
-      color: #333;
-      margin: 0;
-      padding: 0;
+      font-family: "Segoe UI", Arial, sans-serif;
+      margin: 0; padding: 0;
+      background: #f5f7fb; /* softer than white */
+      color: #222;
     }
     header {
-      background: linear-gradient(90deg, #1a73e8, #4caf50);
+      background: linear-gradient(135deg, #00264d, #004d99);
       color: white;
+      padding: 32px;
       text-align: center;
-      padding: 20px;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.3);
     }
-    h1 { margin: 0; font-size: 28px; }
-    .container {
-      width: 85%;
-      margin: auto;
-      padding: 20px;
+    header h1 { margin: 0; font-size: 32px; letter-spacing: 0.5px; }
+    header p { margin: 10px 0; font-size: 16px; opacity: 0.95; }
+    main { padding: 25px; max-width: 950px; margin: auto; }
+    section {
+      background: #ffffff;
+      padding: 24px;
+      margin-bottom: 26px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+      transition: transform 0.2s ease;
     }
+    section:hover { transform: translateY(-3px); }
     h2 {
-      border-bottom: 2px solid #ddd;
-      padding-bottom: 8px;
-      margin-top: 30px;
-      color: #1a73e8;
+      color: #00264d;
+      margin-top: 0;
+      border-bottom: 2px solid #004d99;
+      padding-bottom: 6px;
+      font-size: 22px;
     }
-    .code-block {
-      margin: 20px 0;
-      padding: 15px;
-      background: #fff;
-      border-radius: 10px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-    }
+    h3 { color: #004d99; margin-top: 20px; font-size: 18px; }
     .btn {
       display: inline-block;
-      padding: 10px 15px;
-      margin: 5px;
-      border-radius: 5px;
-      text-decoration: none;
-      font-weight: bold;
+      margin: 10px 12px 10px 0;
+      padding: 12px 22px;
       color: white;
+      text-decoration: none;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 500;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+      transition: all 0.25s ease;
     }
-    .view { background-color: #1a73e8; }
-    .colab { background-color: #ff5722; }
-    .download { background-color: #f39c12; }
-    .report { background-color: #6a1b9a; }
+    .btn:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0,0,0,0.25); }
+
+    /* Different colors for each type */
+    .green { background: linear-gradient(135deg, #2e8b57, #3cb371); }
+    .green:hover { background: linear-gradient(135deg, #3cb371, #66cdaa); }
+
+    .purple { background: linear-gradient(135deg, #6a0dad, #9932cc); }
+    .purple:hover { background: linear-gradient(135deg, #9932cc, #ba55d3); }
+
+    .orange { background: linear-gradient(135deg, #ff8c00, #ff9933); }
+    .orange:hover { background: linear-gradient(135deg, #ffa733, #ffb84d); }
+
+    .blue { background: linear-gradient(135deg, #004d99, #0073e6); }
+    .blue:hover { background: linear-gradient(135deg, #0073e6, #3399ff); }
+
+    .red { background: linear-gradient(135deg, #cc0000, #ff3333); }
+    .red:hover { background: linear-gradient(135deg, #ff3333, #ff6666); }
+
     footer {
       text-align: center;
-      padding: 15px;
-      margin-top: 40px;
-      background: #f1f1f1;
       font-size: 14px;
+      padding: 20px;
+      background: #00264d;
+      color: #ddd;
+      margin-top: 20px;
+    }
+    footer b { color: #fff; }
+    @media (max-width: 768px) {
+      header h1 { font-size: 24px; }
+      h2 { font-size: 20px; }
+      h3 { font-size: 16px; }
+      .btn { font-size: 14px; padding: 10px 18px; }
     }
   </style>
 </head>
 <body>
+  <header>
+    <h1>Structural Equation Modeling (SEM) Tools</h1>
+    <p>Prof. Vishal Gupta · Organizational Behaviour (IIM Ahmedabad)</p>
+  </header>
 
-<header>
-  <h1>SEM Analysis Tools</h1>
-  <p>Prepared by Aryan Patidar (MME, VNIT Nagpur) for Prof. Vishal Gupta (IIM Ahmedabad)</p>
-</header>
+  <main>
+    <!-- Course Material -->
+    <section>
+      <h2>📂 Open SEM Course Folder</h2>
+      <p>Please install <b>R</b>, <b>RStudio</b>, and <b>SPSS</b> before starting.</p>
+      <a href="https://drive.google.com/drive/folders/14YX8D-lZz4LEBkbxg2e5u1BEazWDufg5" class="btn green">📁 Course Folder</a>
+      <a href="https://drive.google.com/drive/folders/17mCoMs5xYTnJRK-g8NOHLdXot43qrSDa?usp=sharing" class="btn purple">🔗 SPSS & AMOS Installers</a>
+    </section>
 
-<div class="container">
+    <!-- Codes -->
+    <section>
+      <h2>🧑‍💻 SEM Tools</h2>
+      <h3>Code 1 – SEM Diagram Generator</h3>
+      <a href="https://docs.google.com/document/d/1FIFXM_2szr5R4gTO5_haWUDaNr1TxON8/edit?usp=drivesdk" class="btn orange">📄 View Code</a>
+      <a href="https://colab.research.google.com/github/1aryanpatidar/sem-tools/blob/main/sem_diagram_generator.ipynb" class="btn blue">▶ Open in Colab</a>
 
-  <h2>Course Resources</h2>
-  <p>All the files for the course can be downloaded from this folder:</p>
-  <a href="https://drive.google.com/drive/folders/14YX8D-lZz4LEBkbxg2e5u1BEazWDufg5" target="_blank" class="btn download">Open Course Folder</a>
+      <h3>Code 2 – Manual SEM GUI → R Script Generator</h3>
+      <a href="https://drive.google.com/file/d/1F8pyqDf0r_oMCRISMJmEqoAsw548Uej6/view?usp=drivesdk" class="btn orange">📄 View Code</a>
+      <a href="https://colab.research.google.com/github/1aryanpatidar/sem-tools/blob/main/sem_r_script_generator.ipynb" class="btn blue">▶ Open in Colab</a>
 
-  <p><strong>Kindly install R, RStudio, and SPSS on your laptops.</strong><br>
-  We will be doing all analyses using R and RStudio and some examples using SPSS.</p>
+      <h3>Code 3 – Structural SEM Generator</h3>
+      <a href="https://drive.google.com/file/d/1F6GX8qGa2zxqc3iSMz3ndVTFIZjBoiKZ/view?usp=drivesdk" class="btn orange">📄 View Code</a>
+      <a href="https://colab.research.google.com/github/1aryanpatidar/sem-tools/blob/main/structural_sem_generator.ipynb" class="btn blue">▶ Open in Colab</a>
+    </section>
 
-  <h2>SEM Code Tools</h2>
+    <!-- Report -->
+    <section>
+      <h2>📑 Internship Report</h2>
+      <a href="https://drive.google.com/file/d/1nXG3HCMy7hd_wo7AYKSS7tFQrnADe-On/view?usp=drivesdk" class="btn red">📥 View Report (PDF)</a>
+    </section>
 
-  <div class="code-block">
-    <h3>Code 1: SEM Diagram Generator</h3>
-    <a href="https://docs.google.com/document/d/1FIFXM_2szr5R4gTO5_haWUDaNr1TxON8/edit?usp=drivesdk&ouid=116680434547304979115&rtpof=true&sd=true" target="_blank" class="btn view">View Code (Doc)</a>
-    <a href="https://colab.research.google.com/github/1aryanpatidar/sem-tools/blob/main/sem_diagram_generator.ipynb" target="_blank" class="btn colab">Open in Colab</a>
-  </div>
+    <!-- Instructions -->
+    <section>
+      <h2>⚡ Quick Instructions</h2>
+      <p>For beginners – follow these steps:</p>
+      <p>1️⃣ Click <b>Open in Colab</b> for any code<br>
+         2️⃣ (For Code 1) Before running, adjust inputs accordingly<br>
+         3️⃣ (For Code 2 & 3) Enter manual inputs<br>
+         4️⃣ Copy the generated <b>R output</b> (for Code 2 & 3)<br>
+         5️⃣ Paste into <b>RStudio</b> and run ✅</p>
+    </section>
+  </main>
 
-  <div class="code-block">
-    <h3>Code 2: Manual SEM GUI Inputs → R Script Generator</h3>
-    <a href="https://drive.google.com/file/d/1F8pyqDf0r_oMCRISMJmEqoAsw548Uej6/view?usp=drivesdk" target="_blank" class="btn view">View Code (Doc)</a>
-    <a href="https://colab.research.google.com/github/1aryanpatidar/sem-tools/blob/main/sem_r_script_generator.ipynb" target="_blank" class="btn colab">Open in Colab</a>
-  </div>
-
-  <div class="code-block">
-    <h3>Code 3: Structural SEM Generator</h3>
-    <a href="https://drive.google.com/file/d/1F6GX8qGa2zxqc3iSMz3ndVTFIZjBoiKZ/view?usp=drivesdk" target="_blank" class="btn view">View Code (Doc)</a>
-    <a href="https://colab.research.google.com/github/1aryanpatidar/sem-tools/blob/main/structural_sem_generator.ipynb" target="_blank" class="btn colab">Open in Colab</a>
-  </div>
-
-  <h2>Software Downloads</h2>
-  <a href="https://drive.google.com/drive/folders/17mCoMs5xYTnJRK-g8NOHLdXot43qrSDa?usp=sharing" target="_blank" class="btn download">Download SPSS & AMOS</a>
-
-  <h2>Internship Report</h2>
-  <p>You can also access the full internship report here:</p>
-  <a href="https://drive.google.com/file/d/1e2r15GOf1bP1LoFs-Tl7dQesTQr795o6/view?usp=drivesdk" target="_blank" class="btn report">View Internship Report (PDF)</a>
-
-</div>
-
-<footer>
-  Created by Aryan Patidar, VNIT Nagpur (Metallurgical & Materials Engineering)
-</footer>
-
+  <footer>
+    <b>Prof. Vishal Gupta · IIM Ahmedabad</b><br>
+    Website support: Aryan Patidar · VNIT Nagpur
+  </footer>
 </body>
 </html>
